@@ -2,6 +2,29 @@
 *.egg-info
 *.py[cod]
 
+# environments
+.venv/
+__pycache__/
+
+# model weights
+checkpoints/
+*.ckpt
+*.pt
+*.safetensors
+
+# outputs
+outputs/
+*.mp4
+*.gif
+*.jpg
+*.png
+
+# caches
+.cache/
+.huggingface/
+.torch/
+
+
 # envs
 .pt13
 .pt2
