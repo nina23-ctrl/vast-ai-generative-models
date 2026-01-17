@@ -177,7 +177,7 @@ class AttnBlock(nn.Module):
             in_channels, in_channels, kernel_size=1, stride=1, padding=0
         )
 
-   def attention(self, h_: torch.Tensor) -> torch.Tensor:
+    def attention(self, h_: torch.Tensor) -> torch.Tensor:
         h_ = self.norm(h_)
         q = self.q(h_)
         k = self.k(h_)
@@ -228,22 +228,35 @@ class MemoryEfficientAttnBlock(nn.Module):
         )
         self.attention_op: Optional[Any] = None
 
-    def attention(self, x):
-        B, C, H, W = x.shape
-        qkv = self.qkv(x)
-        q, k, v = qkv.chunk(3, dim=1)
+    def attention(self, h_: torch.Tensor) -> torch.Tensor:
+        h_ = self.norm(h_)
+        q = self.q(h_)
+        k = self.k(h_)
+        v = self.v(h_)
 
-        q = q.reshape(B, self.num_heads, -1, H * W).transpose(2, 3)
-        k = k.reshape(B, self.num_heads, -1, H * W).transpose(2, 3)
-        v = v.reshape(B, self.num_heads, -1, H * W).transpose(2, 3)
+        # compute attention
+        B, C, H, W = q.shape
+        q, k, v = map(lambda x: rearrange(x, "b c h w -> b (h w) c"), (q, k, v))
 
-        # ---- SAFE ATTENTION (NO XFORMERS) ----
-        attn = torch.nn.functional.scaled_dot_product_attention(
-            q, k, v, dropout_p=0.0, is_causal=False
-        )   
+        q, k, v = map(
+            lambda t: t.unsqueeze(3)
+            .reshape(B, t.shape[1], 1, C)
+            .permute(0, 2, 1, 3)
+            .reshape(B * 1, t.shape[1], C)
+            .contiguous(),
+            (q, k, v),
+        )
+        out = xformers.ops.memory_efficient_attention(
+            q, k, v, attn_bias=None, op=self.attention_op
+        )
 
-        attn = attn.transpose(2, 3).reshape(B, C, H, W)
-        return self.proj_out(attn)
+        out = (
+            out.unsqueeze(0)
+            .reshape(B, 1, out.shape[1], C)
+            .permute(0, 2, 1, 3)
+            .reshape(B, out.shape[1], C)
+        )
+        return rearrange(out, "b (h w) c -> b c h w", b=B, h=H, w=W, c=C)
 
     def forward(self, x, **kwargs):
         h_ = x
@@ -284,7 +297,7 @@ def make_attn(in_channels, attn_type="vanilla", attn_kwargs=None):
         return AttnBlock(in_channels)
     elif attn_type == "vanilla-xformers":
         logpy.info(
-            f"building AttnBlock with {in_channels} in_channels..."
+            f"building MemoryEfficientAttnBlock with {in_channels} in_channels..."
         )
         return AttnBlock(in_channels)
     elif type == "memory-efficient-cross-attn":
