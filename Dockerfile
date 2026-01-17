@@ -57,6 +57,13 @@ RUN pip install --upgrade pip && pip install --no-cache-dir \
     git+https://github.com/openai/CLIP.git \
     timm
 
+# ---- HuggingFace Transformers (REQUIRED by SGM) ----
+RUN pip install --no-cache-dir \
+    transformers==4.36.2 \
+    sentencepiece \
+    accelerate
+
+
 # --- Default command ---
 CMD ["/bin/bash"]
 RUN ln -s /usr/bin/python3 /usr/bin/python
