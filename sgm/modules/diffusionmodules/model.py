@@ -177,7 +177,7 @@ class AttnBlock(nn.Module):
             in_channels, in_channels, kernel_size=1, stride=1, padding=0
         )
 
-    def attention(self, h_: torch.Tensor) -> torch.Tensor:
+   def attention(self, h_: torch.Tensor) -> torch.Tensor:
         h_ = self.norm(h_)
         q = self.q(h_)
         k = self.k(h_)
@@ -284,9 +284,9 @@ def make_attn(in_channels, attn_type="vanilla", attn_kwargs=None):
         return AttnBlock(in_channels)
     elif attn_type == "vanilla-xformers":
         logpy.info(
-            f"building MemoryEfficientAttnBlock with {in_channels} in_channels..."
+            f"building AttnBlock with {in_channels} in_channels..."
         )
-        return MemoryEfficientAttnBlock(in_channels)
+        return AttnBlock(in_channels)
     elif type == "memory-efficient-cross-attn":
         attn_kwargs["query_dim"] = in_channels
         return MemoryEfficientCrossAttentionWrapper(**attn_kwargs)
