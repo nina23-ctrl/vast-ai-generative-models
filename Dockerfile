@@ -32,6 +32,11 @@ WORKDIR /workspace/vast-ai-generative-models
 
 # --- Python deps ---
 RUN pip install -r requirements.txt || true
+RUN pip install --no-cache-dir onnxruntime-gpu
+RUN pip install --no-cache-dir onnxruntime
+RUN apt-get update && apt-get install -y nano
+
+
 
 RUN pip install \
     einops \
