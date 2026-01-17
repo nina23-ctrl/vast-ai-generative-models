@@ -415,7 +415,7 @@ class MemoryEfficientCrossAttention(nn.Module):
         )
 
         # actually compute the attention, what we cannot get enough of
-        if version.parse(xformers.__version__) >= version.parse("0.0.21"):
+        if xformers is not None and version.parse(xformers.__version__) >= version.parse("0.0.21"):
             # NOTE: workaround for
             # https://github.com/facebookresearch/xformers/issues/845
             max_bs = 32768
