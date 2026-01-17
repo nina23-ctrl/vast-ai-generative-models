@@ -51,3 +51,5 @@ RUN pip install \
 
 # --- Default command ---
 CMD ["/bin/bash"]
+RUN ln -s /usr/bin/python3 /usr/bin/python
+
