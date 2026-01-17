@@ -17,6 +17,9 @@ RUN apt update && apt install -y \
     python3 \
     python3-venv \
     python3-pip \
+    libglib2.0-0 \
+    wget \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Python ---
@@ -38,15 +41,20 @@ RUN apt-get update && apt-get install -y nano
 
 
 
-RUN pip install \
+RUN pip install --upgrade pip && pip install --no-cache-dir \
+    torch torchvision torchaudio \
     einops \
     fire \
     omegaconf \
+    imageio imageio-ffmpeg \
     rembg \
     imageio \
     opencv-python \
     open_clip_torch \
+    pytorch-lightning==2.1.3 \
     kornia \
+    imwatermark \
+    git+https://github.com/openai/CLIP.git \
     timm
 
 # --- Default command ---
