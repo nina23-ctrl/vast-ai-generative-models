@@ -435,8 +435,8 @@ class MemoryEfficientCrossAttention(nn.Module):
                 )
             out = torch.cat(out, 0)
         else:
-            out = xformers.ops.memory_efficient_attention(
-                q, k, v, attn_bias=None, op=self.attention_op
+            out = torch.nn.functional.scaled_dot_product_attention(
+                 q, k, v, dropout_p=0.0, is_causal=False
             )
 
         # TODO: Use this directly in the attention operation, as a bias
