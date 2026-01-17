@@ -4,6 +4,10 @@ import sys
 from glob import glob
 from pathlib import Path
 from typing import List, Optional
+import torch
+torch.backends.cuda.enable_flash_sdp(True)
+torch.backends.cuda.enable_mem_efficient_sdp(True)
+torch.backends.cuda.enable_math_sdp(False)
 
 sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), "../../")))
 import cv2
