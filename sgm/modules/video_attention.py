@@ -32,7 +32,6 @@ class VideoTransformerBlock(nn.Module):
         ff_in=False,
         inner_dim=None,
         disable_self_attn=False,
-        attn_type= "softmax",
         disable_temporal_crossattention=False,
         switch_temporal_ca_to_sa=False,
     ):
@@ -162,7 +161,6 @@ class SpatialVideoTransformer(SpatialTransformer):
         ff_in=False,
         checkpoint=False,
         time_depth=1,
-        attn_mode="softmax",
         disable_self_attn=False,
         disable_temporal_crossattention=False,
         max_time_embed_period: int = 10000,
@@ -173,7 +171,6 @@ class SpatialVideoTransformer(SpatialTransformer):
             d_head,
             depth=depth,
             dropout=dropout,
-            attn_type="softmax",
             use_checkpoint=checkpoint,
             context_dim=context_dim,
             use_linear=use_linear,
