@@ -32,6 +32,7 @@ class VideoTransformerBlock(nn.Module):
         ff_in=False,
         inner_dim=None,
         disable_self_attn=False,
+        attn_type=attn_mode,
         disable_temporal_crossattention=False,
         switch_temporal_ca_to_sa=False,
     ):
