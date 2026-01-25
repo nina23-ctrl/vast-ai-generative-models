@@ -38,7 +38,7 @@ class VideoTransformerBlock(nn.Module):
     ):
         super().__init__()
 
-        attn_cls = self.ATTENTION_MODES[self.attn_mode]
+        attn_cls = self.ATTENTION_MODES["softmax"]
 
         self.ff_in = ff_in or inner_dim is not None
         if inner_dim is None:
@@ -204,7 +204,7 @@ class SpatialVideoTransformer(SpatialTransformer):
                     checkpoint=checkpoint,
                     ff_in=ff_in,
                     inner_dim=time_mix_inner_dim,
-                    attn_mode=self.attn_mode,
+                    attn_mode="softmax",
                     disable_self_attn=disable_self_attn,
                     disable_temporal_crossattention=disable_temporal_crossattention,
                 )
