@@ -419,31 +419,12 @@ class MemoryEfficientCrossAttention(nn.Module):
         )
 
         # actually compute the attention, what we cannot get enough of
-        xformers = None
-        XFORMERS_IS_AVAILABLE = False
-        if xformers is not None and version.parse(xformers.__version__) >= version.parse("0.0.21"):
-            # # NOTE: workaround for
-            # # https://github.com/facebookresearch/xformers/issues/845
-            # max_bs = 32768
-            # N = q.shape[0]
-            # n_batches = math.ceil(N / max_bs)
-            # out = list()
-            # for i_batch in range(n_batches):
-            #     batch = slice(i_batch * max_bs, (i_batch + 1) * max_bs)
-            #     out.append(
-            #         xformers.ops.memory_efficient_attention(
-            #             q[batch],
-            #             k[batch],
-            #             v[batch],
-            #             attn_bias=None,
-            #             op=self.attention_op,
-            #         )
-            #     )
-            # out = torch.cat(out, 0)
-        else:
-            out = torch.nn.functional.scaled_dot_product_attention(
-                 q, k, v, dropout_p=0.0, is_causal=False
-            )
+       
+        out = torch.nn.functional.scaled_dot_product_attention(q, k, v,attn_mask=None,dropout_p=self.dropout if self.training else 0.0,is_causal=False)
+
+            # out = torch.nn.functional.scaled_dot_product_attention(
+            #      q, k, v, dropout_p=0.0, is_causal=False
+            # )
 
         # TODO: Use this directly in the attention operation, as a bias
         if exists(mask):
