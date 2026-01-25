@@ -27,6 +27,11 @@ from sgm.util import exists, instantiate_from_config, isheatmap
 
 MULTINODE_HACKS = True
 
+torch.backends.cuda.enable_flash_sdp(True)
+torch.backends.cuda.enable_mem_efficient_sdp(True)
+torch.backends.cuda.enable_math_sdp(True)
+
+
 
 def default_trainer_args():
     argspec = dict(inspect.signature(Trainer.__init__).parameters)
