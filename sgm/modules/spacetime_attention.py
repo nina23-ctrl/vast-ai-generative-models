@@ -386,7 +386,7 @@ class PostHocSpatialTransformerWithTimeMixingAndMotion(SpatialTransformer):
             d_head,
             depth=depth,
             dropout=dropout,
-            attn_type="softmax",
+            attn_type=attn_mode,
             use_checkpoint=checkpoint,
             context_dim=context_dim,
             use_linear=use_linear,
@@ -422,7 +422,7 @@ class PostHocSpatialTransformerWithTimeMixingAndMotion(SpatialTransformer):
                     checkpoint=checkpoint,
                     ff_in=ff_in,
                     inner_dim=time_mix_inner_dim,
-                    attn_mode="softmax",
+                    attn_mode=attn_mode,
                     disable_self_attn=disable_self_attn,
                     disable_temporal_crossattention=disable_temporal_crossattention,
                 )
@@ -443,7 +443,7 @@ class PostHocSpatialTransformerWithTimeMixingAndMotion(SpatialTransformer):
                     checkpoint=checkpoint,
                     ff_in=ff_in,
                     inner_dim=time_mix_inner_dim,
-                    attn_mode="softmax",
+                    attn_mode=attn_mode,
                     disable_self_attn=disable_self_attn,
                     disable_temporal_crossattention=disable_temporal_crossattention,
                 )
