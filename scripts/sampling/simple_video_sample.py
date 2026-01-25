@@ -165,18 +165,18 @@ def sample(
             input_image = Image.fromarray((rgb * 255).astype(np.uint8))
 
         else:
-            with Image.open(input_img_path) as image:
-                if image.mode == "RGBA":
-                    image = image.convert("RGB")
+            image.open(input_img_path) as image:
+            if image.mode == "RGBA":
+                image = image.convert("RGB")
 
-                w, h = image.size
+            w, h = image.size
 
                 # Always start from image
-                input_image = image
+            input_image = image
 
-                if h % 64 != 0 or w % 64 != 0:
-                    width, height = map(lambda x: x - x % 64, (w, h))
-                    input_image = input_image.resize((width, height))
+            if h % 64 != 0 or w % 64 != 0:
+                width, height = map(lambda x: x - x % 64, (w, h))
+                input_image = input_image.resize((width, height))
                 print(f"WARNING: resized from {w}x{h} → {width}x{height}")
 
             input_image = np.array(input_image)
