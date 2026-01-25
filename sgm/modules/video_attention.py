@@ -173,7 +173,7 @@ class SpatialVideoTransformer(SpatialTransformer):
             d_head,
             depth=depth,
             dropout=dropout,
-            attn_type=self.attn_mode,
+            attn_type="softmax",
             use_checkpoint=checkpoint,
             context_dim=context_dim,
             use_linear=use_linear,
