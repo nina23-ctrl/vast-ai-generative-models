@@ -174,12 +174,10 @@ def sample(
                 # Always start from image
                 input_image = image
 
-                 if h % 64 != 0 or w % 64 != 0:
+                if h % 64 != 0 or w % 64 != 0:
                     width, height = map(lambda x: x - x % 64, (w, h))
                     input_image = input_image.resize((width, height))
-                print(
-                    f"WARNING: resized from {w}x{h} → {width}x{height}"
-                )
+                print(f"WARNING: resized from {w}x{h} → {width}x{height}")
 
             input_image = np.array(input_image)
 
