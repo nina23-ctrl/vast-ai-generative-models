@@ -15,6 +15,7 @@ from torch.utils.checkpoint import checkpoint
 
 logpy = logging.getLogger(__name__)
 XFORMERS_DISABLED = True
+MINE=0
 
 if version.parse(torch.__version__) >= version.parse("2.0.0"):
     SDP_IS_AVAILABLE = True
@@ -420,11 +421,11 @@ class MemoryEfficientCrossAttention(nn.Module):
 
         # actually compute the attention, what we cannot get enough of
        
-        out = torch.nn.functional.scaled_dot_product_attention(q, k, v,attn_mask=None,dropout_p=self.dropout if self.training else 0.0,is_causal=False)
-
-            # out = torch.nn.functional.scaled_dot_product_attention(
-            #      q, k, v, dropout_p=0.0, is_causal=False
-            # )
+     
+        if MINE =0:
+            out = torch.nn.functional.scaled_dot_product_attention(
+                  q, k, v, dropout_p=0.0, is_causal=False
+             )
 
         # TODO: Use this directly in the attention operation, as a bias
         if exists(mask):
