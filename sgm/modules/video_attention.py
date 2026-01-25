@@ -162,7 +162,7 @@ class SpatialVideoTransformer(SpatialTransformer):
         ff_in=False,
         checkpoint=False,
         time_depth=1,
-        self.attn_mode="softmax",
+        attn_mode="softmax",
         disable_self_attn=False,
         disable_temporal_crossattention=False,
         max_time_embed_period: int = 10000,
