@@ -30,6 +30,9 @@ MULTINODE_HACKS = True
 torch.backends.cuda.enable_flash_sdp(True)
 torch.backends.cuda.enable_mem_efficient_sdp(True)
 torch.backends.cuda.enable_math_sdp(True)
+print("Flash:", torch.backends.cuda.flash_sdp_enabled())
+print("MemEff:", torch.backends.cuda.mem_efficient_sdp_enabled())
+print("Math:", torch.backends.cuda.math_sdp_enabled())
 
 
 
