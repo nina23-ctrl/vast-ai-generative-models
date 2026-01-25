@@ -2,6 +2,9 @@ import logging
 import math
 from inspect import isfunction
 from typing import Any, Optional
+import os
+
+
 
 import torch
 import torch.nn.functional as F
@@ -11,6 +14,7 @@ from torch import nn
 from torch.utils.checkpoint import checkpoint
 
 logpy = logging.getLogger(__name__)
+XFORMERS_DISABLED = True
 
 if version.parse(torch.__version__) >= version.parse("2.0.0"):
     SDP_IS_AVAILABLE = True
@@ -415,25 +419,27 @@ class MemoryEfficientCrossAttention(nn.Module):
         )
 
         # actually compute the attention, what we cannot get enough of
+        xformers = None
+        XFORMERS_IS_AVAILABLE = False
         if xformers is not None and version.parse(xformers.__version__) >= version.parse("0.0.21"):
-            # NOTE: workaround for
-            # https://github.com/facebookresearch/xformers/issues/845
-            max_bs = 32768
-            N = q.shape[0]
-            n_batches = math.ceil(N / max_bs)
-            out = list()
-            for i_batch in range(n_batches):
-                batch = slice(i_batch * max_bs, (i_batch + 1) * max_bs)
-                out.append(
-                    xformers.ops.memory_efficient_attention(
-                        q[batch],
-                        k[batch],
-                        v[batch],
-                        attn_bias=None,
-                        op=self.attention_op,
-                    )
-                )
-            out = torch.cat(out, 0)
+            # # NOTE: workaround for
+            # # https://github.com/facebookresearch/xformers/issues/845
+            # max_bs = 32768
+            # N = q.shape[0]
+            # n_batches = math.ceil(N / max_bs)
+            # out = list()
+            # for i_batch in range(n_batches):
+            #     batch = slice(i_batch * max_bs, (i_batch + 1) * max_bs)
+            #     out.append(
+            #         xformers.ops.memory_efficient_attention(
+            #             q[batch],
+            #             k[batch],
+            #             v[batch],
+            #             attn_bias=None,
+            #             op=self.attention_op,
+            #         )
+            #     )
+            # out = torch.cat(out, 0)
         else:
             out = torch.nn.functional.scaled_dot_product_attention(
                  q, k, v, dropout_p=0.0, is_causal=False
