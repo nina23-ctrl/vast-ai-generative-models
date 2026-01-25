@@ -1,11 +1,15 @@
+# SAFE-MATH ATTENTION
+# Fully CPU-style math attention on CUDA
+# No xformers, no SDPA, no flash, no triton, no kernels
+
 import logging
 import math
 from inspect import isfunction
-from typing import Any, Optional
+from typing import Optional
 
 import torch
 import torch.nn.functional as F
-from einops import rearrange, repeat
+from einops import rearrange
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
@@ -15,8 +19,8 @@ logpy = logging.getLogger(__name__)
 # HARD DISABLE ALL BACKENDS
 # ==============================
 XFORMERS_DISABLED = True
-SDP_IS_AVAILABLE = False
 XFORMERS_IS_AVAILABLE = False
+SDP_IS_AVAILABLE = False
 
 # ==============================
 # HELPERS
@@ -30,19 +34,13 @@ def default(val, d):
         return val
     return d() if isfunction(d) else d
 
-def max_neg_value(t):
-    return -torch.finfo(t.dtype).max
-
-def init_(tensor):
-    dim = tensor.shape[-1]
-    std = 1 / math.sqrt(dim)
-    tensor.uniform_(-std, std)
-    return tensor
-
 def Normalize(in_channels):
-    return torch.nn.GroupNorm(
-        num_groups=32, num_channels=in_channels, eps=1e-6, affine=True
-    )
+    return nn.GroupNorm(num_groups=32, num_channels=in_channels, eps=1e-6, affine=True)
+
+def zero_module(module):
+    for p in module.parameters():
+        p.detach().zero_()
+    return module
 
 # ==============================
 # FEEDFORWARD
@@ -62,89 +60,71 @@ class FeedForward(nn.Module):
         super().__init__()
         inner_dim = int(dim * mult)
         dim_out = default(dim_out, dim)
+
         project_in = (
             nn.Sequential(nn.Linear(dim, inner_dim), nn.GELU())
             if not glu
             else GEGLU(dim, inner_dim)
         )
+
         self.net = nn.Sequential(
-            project_in, nn.Dropout(dropout), nn.Linear(inner_dim, dim_out)
+            project_in,
+            nn.Dropout(dropout),
+            nn.Linear(inner_dim, dim_out),
         )
 
     def forward(self, x):
         return self.net(x)
 
-def zero_module(module):
-    for p in module.parameters():
-        p.detach().zero_()
-    return module
-
 # ==============================
-# PURE MATH SELF-ATTENTION
+# PURE MATH SELF ATTENTION
 # ==============================
 
 class SelfAttention(nn.Module):
-    def __init__(
-        self,
-        dim: int,
-        num_heads: int = 8,
-        qkv_bias: bool = False,
-        qk_scale: Optional[float] = None,
-        attn_drop: float = 0.0,
-        proj_drop: float = 0.0,
-    ):
+    def __init__(self, dim, num_heads=8, dropout=0.0):
         super().__init__()
         self.num_heads = num_heads
         head_dim = dim // num_heads
-        self.scale = qk_scale or head_dim**-0.5
+        self.scale = head_dim ** -0.5
 
-        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
-        self.attn_drop = nn.Dropout(attn_drop)
+        self.qkv = nn.Linear(dim, dim * 3)
         self.proj = nn.Linear(dim, dim)
-        self.proj_drop = nn.Dropout(proj_drop)
+        self.dropout = nn.Dropout(dropout)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        B, L, C = x.shape
+    def forward(self, x):
+        B, N, C = x.shape
         qkv = self.qkv(x)
-        qkv = rearrange(qkv, "B L (K H D) -> K B H L D", K=3, H=self.num_heads)
+        qkv = rearrange(qkv, "b n (k h d) -> k b h n d", k=3, h=self.num_heads)
         q, k, v = qkv[0], qkv[1], qkv[2]
 
-        attn = torch.matmul(q, k.transpose(-2, -1)) * self.scale
-        attn = torch.softmax(attn, dim=-1)
-        attn = self.attn_drop(attn)
+        attn = (q @ k.transpose(-2, -1)) * self.scale
+        attn = attn.softmax(dim=-1)
+        attn = self.dropout(attn)
 
-        x = torch.matmul(attn, v)
-        x = x.transpose(1, 2).reshape(B, L, C)
-        x = self.proj(x)
-        x = self.proj_drop(x)
-        return x
+        out = attn @ v
+        out = rearrange(out, "b h n d -> b n (h d)")
+        return self.proj(out)
 
 # ==============================
-# PURE MATH CROSS-ATTENTION
+# PURE MATH CROSS ATTENTION
 # ==============================
 
 class CrossAttention(nn.Module):
-    def __init__(
-        self,
-        query_dim,
-        context_dim=None,
-        heads=8,
-        dim_head=64,
-        dropout=0.0,
-    ):
+    def __init__(self, query_dim, context_dim=None, heads=8, dim_head=64, dropout=0.0):
         super().__init__()
-        inner_dim = dim_head * heads
+        inner_dim = heads * dim_head
         context_dim = default(context_dim, query_dim)
 
-        self.scale = dim_head**-0.5
         self.heads = heads
+        self.scale = dim_head ** -0.5
 
         self.to_q = nn.Linear(query_dim, inner_dim, bias=False)
         self.to_k = nn.Linear(context_dim, inner_dim, bias=False)
         self.to_v = nn.Linear(context_dim, inner_dim, bias=False)
 
         self.to_out = nn.Sequential(
-            nn.Linear(inner_dim, query_dim), nn.Dropout(dropout)
+            nn.Linear(inner_dim, query_dim),
+            nn.Dropout(dropout),
         )
 
     def forward(self, x, context=None, mask=None):
@@ -156,12 +136,12 @@ class CrossAttention(nn.Module):
 
         q, k, v = map(lambda t: rearrange(t, "b n (h d) -> b h n d", h=h), (q, k, v))
 
-        attn = torch.matmul(q, k.transpose(-2, -1)) * self.scale
+        attn = (q @ k.transpose(-2, -1)) * self.scale
         if exists(mask):
             attn = attn.masked_fill(mask == 0, float("-inf"))
-        attn = torch.softmax(attn, dim=-1)
+        attn = attn.softmax(dim=-1)
 
-        out = torch.matmul(attn, v)
+        out = attn @ v
         out = rearrange(out, "b h n d -> b n (h d)")
         return self.to_out(out)
 
@@ -169,44 +149,8 @@ class CrossAttention(nn.Module):
 # MEMORY SAFE CROSS ATTENTION
 # ==============================
 
-class MemoryEfficientCrossAttention(nn.Module):
-    def __init__(self, query_dim, context_dim=None, heads=8, dim_head=64, dropout=0.0):
-        super().__init__()
-        inner_dim = dim_head * heads
-        context_dim = default(context_dim, query_dim)
-
-        self.heads = heads
-        self.dim_head = dim_head
-        self.scale = dim_head ** -0.5
-
-        self.to_q = nn.Linear(query_dim, inner_dim, bias=False)
-        self.to_k = nn.Linear(context_dim, inner_dim, bias=False)
-        self.to_v = nn.Linear(context_dim, inner_dim, bias=False)
-
-        self.to_out = nn.Sequential(
-            nn.Linear(inner_dim, query_dim), nn.Dropout(dropout)
-        )
-
-    def forward(self, x, context=None, mask=None):
-        q = self.to_q(x)
-        context = default(context, x)
-        k = self.to_k(context)
-        v = self.to_v(context)
-
-        b, n, _ = q.shape
-        q, k, v = map(
-            lambda t: rearrange(t, "b n (h d) -> b h n d", h=self.heads),
-            (q, k, v),
-        )
-
-        attn = torch.matmul(q, k.transpose(-2, -1)) * self.scale
-        if exists(mask):
-            attn = attn.masked_fill(mask == 0, float("-inf"))
-        attn = torch.softmax(attn, dim=-1)
-
-        out = torch.matmul(attn, v)
-        out = rearrange(out, "b h n d -> b n (h d)")
-        return self.to_out(out)
+class MemoryEfficientCrossAttention(CrossAttention):
+    pass  # math version == CrossAttention (safe fallback)
 
 # ==============================
 # BASIC TRANSFORMER BLOCK
@@ -225,14 +169,15 @@ class BasicTransformerBlock(nn.Module):
         disable_self_attn=False,
     ):
         super().__init__()
+
         self.disable_self_attn = disable_self_attn
 
         self.attn1 = CrossAttention(
             query_dim=dim,
+            context_dim=context_dim if disable_self_attn else None,
             heads=n_heads,
             dim_head=d_head,
             dropout=dropout,
-            context_dim=context_dim if disable_self_attn else None,
         )
 
         self.attn2 = CrossAttention(
@@ -286,26 +231,23 @@ class SpatialTransformer(nn.Module):
         elif context_dim is None:
             context_dim = [None] * depth
 
-        self.in_channels = in_channels
         inner_dim = n_heads * d_head
         self.norm = Normalize(in_channels)
 
         self.proj_in = nn.Conv2d(in_channels, inner_dim, 1)
 
-        self.transformer_blocks = nn.ModuleList(
-            [
-                BasicTransformerBlock(
-                    inner_dim,
-                    n_heads,
-                    d_head,
-                    dropout=dropout,
-                    context_dim=context_dim[d],
-                    disable_self_attn=disable_self_attn,
-                    checkpoint=use_checkpoint,
-                )
-                for d in range(depth)
-            ]
-        )
+        self.transformer_blocks = nn.ModuleList([
+            BasicTransformerBlock(
+                inner_dim,
+                n_heads,
+                d_head,
+                dropout=dropout,
+                context_dim=context_dim[d],
+                disable_self_attn=disable_self_attn,
+                checkpoint=use_checkpoint,
+            )
+            for d in range(depth)
+        ])
 
         self.proj_out = zero_module(nn.Conv2d(inner_dim, in_channels, 1))
 
@@ -328,7 +270,7 @@ class SpatialTransformer(nn.Module):
         return x + x_in
 
 # ==============================
-# LINEAR ATTENTION (SAFE VERSION)
+# LINEAR ATTENTION (SAFE)
 # ==============================
 
 class LinearAttention(nn.Module):
