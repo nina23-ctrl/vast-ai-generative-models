@@ -422,7 +422,7 @@ class MemoryEfficientCrossAttention(nn.Module):
         # actually compute the attention, what we cannot get enough of
        
      
-        if MINE =0:
+        if MINE == 0:
             out = torch.nn.functional.scaled_dot_product_attention(
                   q, k, v, dropout_p=0.0, is_causal=False
              )
