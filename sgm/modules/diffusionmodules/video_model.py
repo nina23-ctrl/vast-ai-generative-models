@@ -223,7 +223,6 @@ class VideoUNet(nn.Module):
                 merge_factor=merge_factor,
                 checkpoint=use_checkpoint,
                 use_linear=use_linear_in_transformer,
-                attn_mode=spatial_transformer_attn_type,
                 disable_self_attn=disabled_sa,
                 disable_temporal_crossattention=disable_temporal_crossattention,
                 max_time_embed_period=max_ddpm_temb_period,
