@@ -326,3 +326,38 @@ class SpatialTransformer(nn.Module):
         x = rearrange(x, "b (h w) c -> b c h w", h=h, w=w)
         x = self.proj_out(x)
         return x + x_in
+
+# ==============================
+# LINEAR ATTENTION (SAFE VERSION)
+# ==============================
+
+class LinearAttention(nn.Module):
+    def __init__(self, dim, heads=4, dim_head=32):
+        super().__init__()
+        self.heads = heads
+        hidden_dim = dim_head * heads
+
+        self.to_q = nn.Conv2d(dim, hidden_dim, 1, bias=False)
+        self.to_k = nn.Conv2d(dim, hidden_dim, 1, bias=False)
+        self.to_v = nn.Conv2d(dim, hidden_dim, 1, bias=False)
+
+        self.to_out = nn.Conv2d(hidden_dim, dim, 1)
+
+    def forward(self, x):
+        b, c, h, w = x.shape
+
+        q = self.to_q(x)
+        k = self.to_k(x)
+        v = self.to_v(x)
+
+        q = rearrange(q, "b (h d) x y -> b h d (x y)", h=self.heads)
+        k = rearrange(k, "b (h d) x y -> b h d (x y)", h=self.heads)
+        v = rearrange(v, "b (h d) x y -> b h d (x y)", h=self.heads)
+
+        k = k.softmax(dim=-1)
+
+        context = torch.einsum("b h d n, b h e n -> b h d e", k, v)
+        out = torch.einsum("b h d e, b h d n -> b h e n", context, q)
+
+        out = rearrange(out, "b h d (x y) -> b (h d) x y", x=h, y=w)
+        return self.to_out(out)
