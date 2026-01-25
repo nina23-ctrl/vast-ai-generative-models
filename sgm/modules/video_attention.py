@@ -31,7 +31,6 @@ class VideoTransformerBlock(nn.Module):
         timesteps=None,
         ff_in=False,
         inner_dim=None,
-        attn_mode="softmax",
         disable_self_attn=False,
         disable_temporal_crossattention=False,
         switch_temporal_ca_to_sa=False,
